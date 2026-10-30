@@ -3,37 +3,52 @@ const $ = (s) => document.querySelector(s);
 
 const SUGGESTED = /(analytics|statistic|telemetry|tracking|crashlytics|bugreport|feedback|adservice|\.ads?(\.|$)|advert|promo|demo|partnercustomization|hotelmode|retail)/i;
 
-const st = { pkgs: [], sel: new Set(), filter: "all", q: "", info: null };
+const st = { pkgs: [], sel: new Set(), filter: "all", q: "", info: null, connected: false };
 
-const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 function show(view) {
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${view}`));
 }
 let toastTimer;
 function toast(msg) {
-  const t = $("#toast");
-  t.textContent = msg; t.hidden = false;
+  const el = $("#toast");
+  el.textContent = msg; el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), 3200);
+  toastTimer = setTimeout(() => (el.hidden = true), 3200);
 }
+const toastErr = (err) => toast(tErr(err));
 function busy(btn, on) { btn.classList.toggle("busy", on); btn.disabled = on; }
+
+// ---- language
+(function initLang() {
+  const sel = $("#lang");
+  sel.innerHTML = Object.entries(I18N).map(([k, v]) => `<option value="${k}">${v._name}</option>`).join("");
+  sel.value = lang;
+  applyStatic();
+  sel.addEventListener("change", () => {
+    setLang(sel.value);
+    $("#modal").hidden = true;
+    if (st.connected) { renderTv(); render(); }
+  });
+})();
 
 // ---- connect
 $("#connect-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const btn = $("#connect-btn"), msg = $("#connect-msg");
   msg.className = "msg info";
-  msg.textContent = "Connessione… se il TV chiede «Consenti debug USB?», accetta.";
+  msg.textContent = t("connecting");
   busy(btn, true);
   try {
     st.info = await invoke("connect", { host: $("#host").value });
+    st.connected = true;
     msg.textContent = "";
     renderTv();
     show("dash");
     loadPackages();
   } catch (err) {
     msg.className = "msg";
-    msg.textContent = String(err);
+    msg.textContent = tErr(err);
   } finally { busy(btn, false); }
 });
 
@@ -43,24 +58,24 @@ function renderTv() {
   $("#tv-model").textContent = i.model || i.host;
   const chips = [`Android ${i.android}`, `SDK ${i.sdk}`, i.build, i.host].filter(Boolean);
   $("#tv-chips").innerHTML = chips.map((c) => `<span class="chip">${esc(c)}</span>`).join("") +
-    (i.secure === "0" || !i.secure ? `<span class="chip warn">ro.adb.secure non attivo</span>` : "");
+    (i.secure === "0" || !i.secure ? `<span class="chip warn">${esc(t("adbNotSecure"))}</span>` : "");
 }
 
 $("#disconnect-btn").addEventListener("click", async () => {
   await invoke("disconnect");
-  st.pkgs = []; st.sel.clear();
+  st.pkgs = []; st.sel.clear(); st.connected = false;
   show("connect");
 });
 
 // ---- packages
 async function loadPackages() {
-  $("#list").innerHTML = `<div class="loading"><span class="spin"></span>Scansione del TV…</div>`;
+  $("#list").innerHTML = `<div class="loading"><span class="spin"></span>${esc(t("scanning"))}</div>`;
   try {
     st.pkgs = await invoke("scan");
     st.pkgs.forEach((p) => (p.suggested = SUGGESTED.test(p.name)));
     render();
   } catch (err) {
-    $("#list").innerHTML = `<div class="loading">${esc(String(err))}</div>`;
+    $("#list").innerHTML = `<div class="loading">${esc(tErr(err))}</div>`;
   }
 }
 
@@ -75,20 +90,24 @@ function visible() {
   });
 }
 
+function updateBar() {
+  const n = st.sel.size;
+  $("#sel-count").textContent = n;
+  $("#review-btn").disabled = n === 0;
+  $("#sel-hint").textContent = n ? t("selHint") : "";
+}
+
 function render() {
   const rows = visible().map((p) => `
     <div class="row ${st.sel.has(p.name) ? "sel" : ""} ${p.enabled ? "" : "off"}" data-n="${esc(p.name)}">
       <span class="check"></span>
       <span class="name" title="${esc(p.name)}">${esc(p.name)}</span>
-      ${p.suggested && p.enabled ? `<span class="tag sug">consigliato</span>` : ""}
-      ${p.system ? `<span class="tag sys">sistema</span>` : ""}
-      ${p.enabled ? "" : `<span class="tag dis">disabilitato</span>`}
+      ${p.suggested && p.enabled ? `<span class="tag sug">${esc(t("suggested"))}</span>` : ""}
+      ${p.system ? `<span class="tag sys">${esc(t("system"))}</span>` : ""}
+      ${p.enabled ? "" : `<span class="tag dis">${esc(t("disabledTag"))}</span>`}
     </div>`).join("");
-  $("#list").innerHTML = rows || `<div class="loading">Nessun pacchetto</div>`;
-  const n = st.sel.size;
-  $("#sel-count").textContent = n;
-  $("#review-btn").disabled = n === 0;
-  $("#sel-hint").textContent = n ? "· verranno controllati prima dell'applicazione" : "";
+  $("#list").innerHTML = rows || `<div class="loading">${esc(t("noPackages"))}</div>`;
+  updateBar();
 }
 
 $("#list").addEventListener("click", (e) => {
@@ -97,9 +116,7 @@ $("#list").addEventListener("click", (e) => {
   const n = row.dataset.n;
   st.sel.has(n) ? st.sel.delete(n) : st.sel.add(n);
   row.classList.toggle("sel");
-  $("#sel-count").textContent = st.sel.size;
-  $("#review-btn").disabled = st.sel.size === 0;
-  $("#sel-hint").textContent = st.sel.size ? "· verranno controllati prima dell'applicazione" : "";
+  updateBar();
 });
 $("#search").addEventListener("input", (e) => { st.q = e.target.value; render(); });
 $("#filters").addEventListener("click", (e) => {
@@ -116,31 +133,33 @@ $("#import").addEventListener("change", async (e) => {
     let hit = 0;
     names.forEach((n) => { if (known.has(n)) { st.sel.add(n); hit++; } });
     render();
-    toast(`${hit} pacchetti selezionati su ${names.length} nella lista`);
-  } catch (err) { toast(String(err)); }
+    toast(t("importResult", { hit, total: names.length }));
+  } catch (err) { toastErr(err); }
   e.target.value = "";
 });
 
 // ---- plan & apply
+const line = (cls, mark, txt, extra = "") =>
+  `<div class="item ${cls}"><span>${mark}</span><code>${esc(txt)}</code>${extra ? `<span>${esc(extra)}</span>` : ""}</div>`;
 let pending = [];
+
 $("#review-btn").addEventListener("click", async () => {
   const btn = $("#review-btn"); busy(btn, true);
   try {
     const plan = await invoke("plan", { packages: [...st.sel] });
     pending = plan.filter((x) => x.status === "ok").map((x) => x.name);
-    const label = { ok: "✓", skip: "⚠", absent: "–", disabled: "–" };
-    $("#modal-title").textContent = "Revisione";
-    $("#modal-sub").textContent = `${pending.length} verranno disabilitati (mai disinstallati). Registro di ripristino salvato prima di toccare il TV.`;
-    $("#plan").innerHTML = plan.map((x) => `
-      <div class="item ${x.status === "ok" ? "ok" : x.status === "skip" ? "skip" : "muted"}">
-        <span>${label[x.status]}</span><code>${esc(x.name)}</code><span>${esc(x.reason)}</span>
-      </div>`).join("");
+    const mark = { ok: "✓", skip: "⚠", absent: "–", disabled: "–" };
+    $("#modal-title").textContent = t("reviewTitle");
+    $("#modal-sub").textContent = t("reviewSub", { n: pending.length });
+    $("#plan").innerHTML = plan.map((x) =>
+      line(x.status === "ok" ? "ok" : x.status === "skip" ? "skip" : "muted", mark[x.status], x.name, x.reason ? t(`r.${x.reason}`) : "")).join("");
+    $("#apk-pick").hidden = true;
     $("#modal-go").disabled = pending.length === 0;
-    $("#modal-go").textContent = `Disabilita ${pending.length}`;
+    $("#modal-go").textContent = t("disableN", { n: pending.length });
     $("#modal-go").onclick = doApply;
     $("#modal").hidden = false;
-  } catch (err) { toast(String(err)); }
-  finally { busy(btn, false); st.sel.size || (btn.disabled = true); }
+  } catch (err) { toastErr(err); }
+  finally { busy(btn, false); updateBar(); }
 });
 $("#modal-cancel").addEventListener("click", () => ($("#modal").hidden = true));
 
@@ -148,33 +167,33 @@ async function doApply() {
   const go = $("#modal-go"); busy(go, true);
   try {
     const res = await invoke("apply", { packages: pending });
-    const ok = res.filter((r) => r.ok).length;
     $("#modal").hidden = true;
     st.sel.clear();
-    toast(`${ok}/${res.length} disabilitati`);
+    toast(t("appliedN", { ok: res.filter((r) => r.ok).length, total: res.length }));
     loadPackages();
-  } catch (err) { toast(String(err)); }
+  } catch (err) { toastErr(err); }
   finally { busy(go, false); }
 }
 
 // ---- restore
 $("#restore-btn").addEventListener("click", async () => {
   let info;
-  try { info = await invoke("recovery_info"); } catch (err) { return toast(String(err)); }
-  if (!info || info.to_enable.length === 0) return toast("Niente da ripristinare per questo TV");
-  $("#modal-title").textContent = "Ripristino";
-  $("#modal-sub").textContent = `Riabilita ${info.to_enable.length} pacchetti, la Home e le animazioni com'erano.`;
-  $("#plan").innerHTML = info.to_enable.map((n) => `<div class="item ok"><span>↺</span><code>${esc(n)}</code></div>`).join("");
+  try { info = await invoke("recovery_info"); } catch (err) { return toastErr(err); }
+  if (!info || info.to_enable.length === 0) return toast(t("nothingToRestore"));
+  $("#modal-title").textContent = t("restoreTitle");
+  $("#modal-sub").textContent = t("restoreSub", { n: info.to_enable.length });
+  $("#plan").innerHTML = info.to_enable.map((n) => line("ok", "↺", n)).join("");
+  $("#apk-pick").hidden = true;
   $("#modal-go").disabled = false;
-  $("#modal-go").textContent = "Ripristina tutto";
+  $("#modal-go").textContent = t("restoreAll");
   $("#modal-go").onclick = async () => {
     const go = $("#modal-go"); busy(go, true);
     try {
       const res = await invoke("restore");
       $("#modal").hidden = true;
-      toast(`${res.filter((r) => r.ok).length} pacchetti riabilitati`);
+      toast(t("restoredN", { n: res.filter((r) => r.ok).length }));
       loadPackages();
-    } catch (err) { toast(String(err)); }
+    } catch (err) { toastErr(err); }
     finally { busy(go, false); }
   };
   $("#modal").hidden = false;
@@ -184,40 +203,37 @@ $("#restore-btn").addEventListener("click", async () => {
 let apkBytes = null;
 async function openLauncher() {
   let s;
-  try { s = await invoke("launcher_status"); } catch (err) { return toast(String(err)); }
-  const line = (ok, txt) => `<div class="item ${ok ? "ok" : "muted"}"><span>${ok ? "✓" : "–"}</span><code>${esc(txt)}</code></div>`;
-  $("#modal-title").textContent = "Launcher";
-  $("#modal-sub").textContent = "Installa la schermata Home alternativa. Il launcher stock viene solo disabilitato e «Ripristina» lo rimette com'era.";
-  const render = (apkName) => {
+  try { s = await invoke("launcher_status"); } catch (err) { return toastErr(err); }
+  const row = (ok, txt) => line(ok ? "ok" : "muted", ok ? "✓" : "–", txt);
+  $("#modal-title").textContent = t("launcherTitle");
+  $("#modal-sub").textContent = t("launcherSub");
+  const renderStatus = (apkName) => {
     $("#plan").innerHTML =
-      line(s.sdk_ok, s.sdk_ok ? "Android compatibile (SDK 26+)" : "Android troppo vecchio per il launcher") +
-      line(s.installed, s.installed ? "Launcher già installato" : "Launcher non installato") +
-      line(s.is_home, `Home attuale: ${s.home || "sconosciuta"}`) +
-      line(s.stock !== null, s.stock ? `Launcher stock da disabilitare: ${s.stock}` : "Nessun launcher stock noto: la Home verrà solo impostata") +
-      line(s.has_apk || apkName, apkName ? `APK scelto: ${apkName}` : s.has_apk ? "APK pronto in ~/.tvoid/launcher.apk" : "Nessun APK: scegline uno (vedi README)");
+      row(s.sdk_ok, t(s.sdk_ok ? "sdkOk" : "sdkBad")) +
+      row(s.installed, t(s.installed ? "isInstalled" : "notInstalled")) +
+      row(s.is_home, t("currentHome", { home: s.home || t("unknown") })) +
+      row(s.stock !== null, s.stock ? t("stockDisable", { pkg: s.stock }) : t("noStock")) +
+      row(s.has_apk || apkName, apkName ? t("apkChosen", { name: apkName }) : s.has_apk ? t("apkReady") : t("apkNone"));
     $("#modal-go").disabled = !s.sdk_ok || !(s.has_apk || apkBytes);
   };
-  apkBytes = null; render(null);
+  apkBytes = null; renderStatus(null);
   $("#apk-pick").hidden = false;
   $("#apk-file").onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     apkBytes = Array.from(new Uint8Array(await f.arrayBuffer()));
-    render(f.name);
+    renderStatus(f.name);
   };
-  $("#modal-go").textContent = s.installed ? "Reinstalla" : "Installa";
+  $("#modal-go").textContent = t(s.installed ? "reinstall" : "install");
   $("#modal-go").onclick = async () => {
     const go = $("#modal-go"); busy(go, true);
     try {
       const log = await invoke("launcher_install", { apk: apkBytes });
-      $("#plan").innerHTML = log.map((l) => line(true, l)).join("");
-      toast("Launcher installato");
-      $("#modal-go").disabled = true;
+      $("#plan").innerHTML = log.map((l) => row(true, tLog(l))).join("");
+      toast(t("launcherDone"));
+      go.classList.remove("busy"); go.disabled = true;
       loadPackages();
-    } catch (err) { toast(String(err)); }
-    finally { busy(go, false); }
+    } catch (err) { toastErr(err); busy(go, false); }
   };
   $("#modal").hidden = false;
 }
 $("#launcher-btn").addEventListener("click", openLauncher);
-// hide the APK picker for the other dialogs
-new MutationObserver(() => { if ($("#modal").hidden) $("#apk-pick").hidden = true; }).observe($("#modal"), { attributes: true, attributeFilter: ["hidden"] });

@@ -55,22 +55,22 @@ pub fn launcher_install(state: tauri::State<State>, apk: Option<Vec<u8>>) -> Res
     let path = apk_path()?;
     if let Some(bytes) = apk {
         if bytes.len() < 1024 || &bytes[..2] != b"PK" {
-            return Err("il file non sembra un APK".into());
+            return Err("e:not_apk".into());
         }
         std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     }
     if !path.exists() {
-        return Err("nessun APK del launcher: scegline uno".into());
+        return Err("e:no_apk".into());
     }
 
     with_tv(&state, |tv| {
         let mut log = Vec::new();
         let sdk: u32 = tv.prop("ro.build.version.sdk").parse().unwrap_or(0);
         if sdk < MIN_SDK {
-            return Err(format!("il TV è Android SDK {sdk}, il launcher richiede almeno {MIN_SDK}"));
+            return Err(format!("e:sdk_old:{sdk}:{MIN_SDK}"));
         }
 
-        let prev_home = current_home(tv).ok_or("impossibile leggere la Home attuale")?;
+        let prev_home = current_home(tv).ok_or("e:no_home")?;
         let stock = safety::KNOWN_LAUNCHERS
             .iter()
             .find(|k| **k == pkg_of(&prev_home))
@@ -80,24 +80,24 @@ pub fn launcher_install(state: tauri::State<State>, apk: Option<Vec<u8>>) -> Res
         let mut to_record = vec![LAUNCHER_PKG.to_string()];
         to_record.extend(stock.clone());
         record_before(tv, &to_record)?;
-        log.push("registro di ripristino salvato".into());
+        log.push("l:record_saved".into());
 
         tv.install(&path)?;
-        log.push("APK installato".into());
+        log.push("l:apk_installed".into());
 
         let started = tv.sh(&format!(
             "am start -W -a android.intent.action.MAIN -c android.intent.category.HOME -n {LAUNCHER_ACTIVITY}"
         ))?;
         if !started.contains("Status: ok") {
-            return Err(format!("il launcher non si avvia: {started}"));
+            return Err(format!("e:start_failed:{started}"));
         }
-        log.push("launcher avviato".into());
+        log.push("l:started".into());
 
         tv.sh(&format!("pm grant {LAUNCHER_PKG} android.permission.ACCESS_FINE_LOCATION"))?;
         tv.sh(&format!("cmd package compile -m speed -f {LAUNCHER_PKG}"))?;
         if let Some(s) = &stock {
             tv.sh(&format!("pm disable-user --user 0 {s}"))?;
-            log.push(format!("{s} disabilitato"));
+            log.push(format!("l:disabled:{s}"));
         }
         tv.sh(&format!("cmd package set-home-activity --user 0 {LAUNCHER_ACTIVITY}"))?;
 
@@ -110,9 +110,9 @@ pub fn launcher_install(state: tauri::State<State>, apk: Option<Vec<u8>>) -> Res
             if prev_home.split('/').all(|p| p.starts_with('.') || safety::is_valid_name(p)) {
                 let _ = tv.sh(&format!("cmd package set-home-activity --user 0 {prev_home}"));
             }
-            return Err("la Home non è passata al launcher: ho annullato tutto".into());
+            return Err("e:home_not_switched".into());
         }
-        log.push("Home impostata sul nuovo launcher".into());
+        log.push("l:home_set".into());
         Ok(log)
     })
 }

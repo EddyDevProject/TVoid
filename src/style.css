@@ -111,3 +111,7 @@ h1 span { background: linear-gradient(120deg, var(--teal), var(--indigo)); -webk
 
 .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 60; padding: 12px 22px; border-radius: 999px; background: rgba(30,30,48,.92); border: 1px solid var(--edge); animation: rise .35s both; }
 .toast[hidden] { display: none; }
+
+/* language picker */
+#lang { position: fixed; top: 10px; right: 14px; z-index: 55; color: var(--fg); font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; outline: 0; cursor: pointer; appearance: none; -webkit-appearance: none; }
+#lang option { color: #111; }

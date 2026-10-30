@@ -50,7 +50,7 @@ pub fn parse_list(text: &str) -> Result<Vec<String>, String> {
             continue;
         }
         if !is_valid_name(line) {
-            return Err(format!("riga non valida: {line}"));
+            return Err(format!("e:bad_line:{line}"));
         }
         if !out.iter().any(|p| p == line) {
             out.push(line.to_string());

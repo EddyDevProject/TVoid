@@ -8,6 +8,7 @@ restores the TV as it was. Built with Rust and [Tauri](https://tauri.app); the A
 client is native, so you don't need `adb` installed.
 
 ## Features
+- Interface in English (default), Italiano, Español, Français and Deutsch; pick it top right.
 - Connect by IP; the TV asks to authorize the key once.
 - Scan installed packages, search and filter, import a `debloat.txt` list.
 - A review step runs the safety checks before anything is applied:

@@ -32,9 +32,9 @@ fn resolve(host: &str) -> Result<SocketAddr, String> {
     let target = if host.contains(':') { host.to_string() } else { format!("{host}:5555") };
     target
         .to_socket_addrs()
-        .map_err(|e| format!("indirizzo non valido: {e}"))?
+        .map_err(|e| format!("e:bad_address:{e}"))?
         .next()
-        .ok_or_else(|| "indirizzo non valido".to_string())
+        .ok_or_else(|| "e:bad_address:".to_string())
 }
 
 impl Tv {
@@ -42,7 +42,7 @@ impl Tv {
         let addr = resolve(host)?;
         let key = ensure_key()?;
         let dev = ADBTcpDevice::new_with_custom_private_key(addr, key)
-            .map_err(|e| format!("connessione fallita: {e}"))?;
+            .map_err(|e| format!("e:connect_failed:{e}"))?;
         Ok(Self { host: host.to_string(), dev })
     }
 
@@ -55,7 +55,7 @@ impl Tv {
     }
 
     pub fn install(&mut self, apk: &std::path::Path) -> Result<(), String> {
-        self.dev.install(&apk, None).map_err(|e| format!("installazione fallita: {e}"))
+        self.dev.install(&apk, None).map_err(|e| format!("e:install_failed:{e}"))
     }
 
     pub fn prop(&mut self, name: &str) -> String {

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,19 +18,19 @@
         <svg viewBox="0 0 64 64" width="64" height="64"><rect x="6" y="12" width="52" height="34" rx="8" fill="none" stroke="currentColor" stroke-width="3"/><path d="M22 54h20M32 46v8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M18 30l8 8 20-18" fill="none" stroke="url(#g)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="g"><stop offset="0" stop-color="#5eead4"/><stop offset="1" stop-color="#818cf8"/></linearGradient></defs></svg>
       </div>
       <h1>TV<span>oid</span></h1>
-      <p class="sub">Togli la roba inutile dalla tua Android TV. Niente root, niente cavi, tutto reversibile.</p>
+      <p class="sub" data-i18n="tagline"></p>
       <form id="connect-form" class="glass pill">
-        <input id="host" placeholder="IP del TV, es. 192.168.1.42" autocomplete="off" spellcheck="false" required>
-        <button class="btn primary" id="connect-btn">Connetti</button>
+        <input id="host" data-i18n-ph="hostPlaceholder" autocomplete="off" spellcheck="false" required>
+        <button class="btn primary" id="connect-btn" data-i18n="connect"></button>
       </form>
       <p id="connect-msg" class="msg"></p>
       <details class="glass help">
-        <summary>Come attivo l'ADB sul TV?</summary>
+        <summary data-i18n="howAdb"></summary>
         <ol>
-          <li>Impostazioni → Preferenze dispositivo → Informazioni</li>
-          <li>Premi OK 7 volte su <b>Build</b></li>
-          <li>Opzioni sviluppatore → attiva <b>Debug USB</b> (e debug di rete, se c'è)</li>
-          <li>Alla prima connessione accetta «Consenti debug USB?» sul TV</li>
+          <li data-i18n="adb1"></li>
+          <li data-i18n="adb2"></li>
+          <li data-i18n="adb3"></li>
+          <li data-i18n="adb4"></li>
         </ol>
       </details>
     </div>
@@ -45,28 +45,28 @@
         <div class="chips" id="tv-chips"></div>
       </div>
       <div class="top-actions">
-        <button class="btn ghost" id="launcher-btn">Launcher</button>
-        <button class="btn ghost" id="restore-btn">Ripristina</button>
-        <button class="btn ghost" id="disconnect-btn">Disconnetti</button>
+        <button class="btn ghost" id="launcher-btn" data-i18n="launcher"></button>
+        <button class="btn ghost" id="restore-btn" data-i18n="restore"></button>
+        <button class="btn ghost" id="disconnect-btn" data-i18n="disconnect"></button>
       </div>
     </header>
 
     <div class="toolbar">
-      <input id="search" class="glass" placeholder="Cerca pacchetto…" spellcheck="false">
+      <input id="search" class="glass" data-i18n-ph="searchPlaceholder" spellcheck="false">
       <div class="seg glass" id="filters">
-        <button data-f="all" class="on">Tutti</button>
-        <button data-f="suggested">Consigliati</button>
-        <button data-f="enabled">Attivi</button>
-        <button data-f="disabled">Disabilitati</button>
+        <button data-f="all" class="on" data-i18n="fAll"></button>
+        <button data-f="suggested" data-i18n="fSuggested"></button>
+        <button data-f="enabled" data-i18n="fEnabled"></button>
+        <button data-f="disabled" data-i18n="fDisabled"></button>
       </div>
-      <label class="btn ghost file">Importa lista<input type="file" id="import" accept=".txt" hidden></label>
+      <label class="btn ghost file"><span data-i18n="importList"></span><input type="file" id="import" accept=".txt" hidden></label>
     </div>
 
-    <div class="list glass" id="list"><div class="loading"><span class="spin"></span>Scansione del TV…</div></div>
+    <div class="list glass" id="list"><div class="loading"><span class="spin"></span><span data-i18n="scanning"></span></div></div>
 
     <footer class="bar glass" id="bar">
-      <div><b id="sel-count">0</b> selezionati <span class="dim" id="sel-hint"></span></div>
-      <button class="btn primary" id="review-btn" disabled>Controlla e applica</button>
+      <div><b id="sel-count">0</b> <span data-i18n="selected"></span> <span class="dim" id="sel-hint"></span></div>
+      <button class="btn primary" id="review-btn" data-i18n="review" disabled></button>
     </footer>
   </section>
 </main>
@@ -74,18 +74,20 @@
 <!-- PLAN MODAL -->
 <div class="modal" id="modal" hidden>
   <div class="sheet glass">
-    <h3 id="modal-title">Revisione</h3>
+    <h3 id="modal-title"></h3>
     <p class="dim" id="modal-sub"></p>
     <div class="plan" id="plan"></div>
     <input type="file" id="apk-file" accept=".apk" hidden>
     <div class="sheet-actions">
-      <button class="btn ghost" id="modal-cancel">Chiudi</button>
-      <label class="btn ghost" id="apk-pick" hidden for="apk-file">Scegli APK…</label>
-      <button class="btn primary" id="modal-go">Disabilita</button>
+      <button class="btn ghost" id="modal-cancel" data-i18n="close"></button>
+      <label class="btn ghost" id="apk-pick" hidden for="apk-file" data-i18n="pickApk"></label>
+      <button class="btn primary" id="modal-go"></button>
     </div>
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<select id="lang" class="glass" aria-label="Language"></select>
+<script src="i18n.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

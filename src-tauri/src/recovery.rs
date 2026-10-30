@@ -18,7 +18,7 @@ pub struct Record {
 
 pub fn data_dir() -> Result<PathBuf, String> {
     let dir = dirs::home_dir()
-        .ok_or("home directory non trovata")?
+        .ok_or("e:no_home_dir")?
         .join(".tvoid");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)

@@ -18,8 +18,8 @@ fn with_tv<T>(
     state: &tauri::State<State>,
     f: impl FnOnce(&mut Tv) -> Result<T, String>,
 ) -> Result<T, String> {
-    let mut guard = state.0.lock().map_err(|_| "stato corrotto".to_string())?;
-    let tv = guard.as_mut().ok_or("nessun TV connesso")?;
+    let mut guard = state.0.lock().map_err(|_| "e:poisoned".to_string())?;
+    let tv = guard.as_mut().ok_or("e:no_tv")?;
     f(tv)
 }
 
@@ -116,7 +116,7 @@ fn record_before(tv: &mut Tv, packages: &[String]) -> Result<(), String> {
         };
         rec.packages.entry(p.clone()).or_insert_with(|| before.to_string());
     }
-    recovery::save(&tv.host, &rec).map_err(|e| format!("salvataggio ripristino fallito: {e}"))
+    recovery::save(&tv.host, &rec).map_err(|e| format!("e:save_failed:{e}"))
 }
 
 #[tauri::command(async)]
@@ -133,7 +133,7 @@ fn connect(state: tauri::State<State>, host: String) -> Result<Probe, String> {
         secure: tv.prop("ro.adb.secure"),
         home: current_home(&mut tv).unwrap_or_default(),
     };
-    *state.0.lock().map_err(|_| "stato corrotto".to_string())? = Some(tv);
+    *state.0.lock().map_err(|_| "e:poisoned".to_string())? = Some(tv);
     Ok(probe)
 }
 
@@ -185,28 +185,28 @@ fn plan(state: tauri::State<State>, packages: Vec<String>) -> Result<Vec<PlanIte
 
         for name in packages {
             if !safety::is_valid_name(&name) {
-                items.push(mk(&name, "skip", "nome non valido"));
+                items.push(mk(&name, "skip", "invalid_name"));
             } else if safety::is_core(&name) {
-                items.push(mk(&name, "skip", "pacchetto di sistema protetto"));
+                items.push(mk(&name, "skip", "protected"));
             } else if !installed.contains(&name) {
-                items.push(mk(&name, "absent", "non installato"));
+                items.push(mk(&name, "absent", "not_installed"));
             } else if disabled.contains(&name) {
-                items.push(mk(&name, "disabled", "già disabilitato"));
+                items.push(mk(&name, "disabled", "already_disabled"));
             } else if name == safety::SETUP_WIZARD
                 && tv
                     .sh("dumpsys wifi | grep -o 'cname=[^ ]*'")
                     .unwrap_or_default()
                     .contains(&name)
             {
-                items.push(mk(&name, "skip", "possiede il Wi-Fi salvato"));
+                items.push(mk(&name, "skip", "owns_wifi"));
             } else if homes.contains(&name) && remaining_homes.len() <= 1 {
-                items.push(mk(&name, "skip", "unico launcher rimasto"));
+                items.push(mk(&name, "skip", "last_launcher"));
             } else if tv
                 .sh(&format!("dumpsys package {name}"))
                 .unwrap_or_default()
                 .contains("android.permission.TV_INPUT_HARDWARE")
             {
-                items.push(mk(&name, "skip", "driver degli ingressi HDMI"));
+                items.push(mk(&name, "skip", "tv_input"));
             } else {
                 remaining_homes.remove(&name);
                 items.push(mk(&name, "ok", ""));
@@ -225,7 +225,7 @@ fn apply(state: tauri::State<State>, packages: Vec<String>) -> Result<Vec<Action
         let mut results = Vec::new();
         for p in packages {
             if !safety::is_valid_name(&p) || safety::is_core(&p) {
-                results.push(ActionResult { name: p, ok: false, detail: "rifiutato".into() });
+                results.push(ActionResult { name: p, ok: false, detail: "refused".into() });
                 continue;
             }
             let out = tv.sh(&format!("pm disable-user --user 0 {p}"))?;
@@ -254,7 +254,7 @@ fn recovery_info(state: tauri::State<State>) -> Result<Option<RecoveryInfo>, Str
 #[tauri::command(async)]
 fn restore(state: tauri::State<State>) -> Result<Vec<ActionResult>, String> {
     with_tv(&state, |tv| {
-        let rec = recovery::load(&tv.host)?.ok_or("nessun registro di ripristino per questo TV")?;
+        let rec = recovery::load(&tv.host)?.ok_or("e:no_record")?;
         let mut results = Vec::new();
         for (p, was) in &rec.packages {
             if was != "enabled" || !safety::is_valid_name(p) {
