@@ -2,6 +2,8 @@
 <h1 align="center">TVoid</h1>
 <p align="center">Declutter your Android TV / Google TV from the desktop. No root, no cable, everything reversible.</p>
 
+<p align="center"><img src="docs/screenshot.png" width="860" alt="TVoid showing the package list of a connected TV"></p>
+
 TVoid talks to your TV over Wi-Fi ADB (port 5555) and **disables** (never uninstalls)
 telemetry, ads and preloaded apps. Every change is recorded first, so one click
 restores the TV as it was. Built with Rust and [Tauri](https://tauri.app); the ADB
