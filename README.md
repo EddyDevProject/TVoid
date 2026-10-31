@@ -48,6 +48,18 @@ which clones the upstream source at a pinned commit and builds it with Gradle
 machine**; read them first if you want to be sure. The APK lands in
 `~/.tvoid/launcher.apk`. You can also pick any APK from the Launcher dialog.
 
+## Updates
+On startup TVoid checks the latest published release and, if there is a newer version,
+offers to download, install and restart. Update packages are signed with a minisign key;
+the public key is in `src-tauri/tauri.conf.json`, so only releases signed with the
+matching private key are accepted. Nothing is sent besides the download request.
+
+Maintainers: the release workflow needs two repository secrets,
+`TAURI_SIGNING_PRIVATE_KEY` (contents of the private key file) and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty if the key has no password).
+Generate a key with `npx tauri signer generate -w ~/.tauri/tvoid-updater.key` and put
+the new public key in `tauri.conf.json`. Keep the private key out of the repo.
+
 ## Safety
 Use at your own risk. Disabling the wrong package can break a TV; the app protects
 the known critical ones, but firmware differs. `Restore` re-enables what TVoid disabled.

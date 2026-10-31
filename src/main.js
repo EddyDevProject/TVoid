@@ -331,3 +331,40 @@ async function openLists() {
   $("#modal").hidden = false;
 }
 $("#lists-btn").addEventListener("click", openLists);
+
+// ---- updates: checked once at startup, silent when offline or when there is no release yet
+(async function checkForUpdate() {
+  const updater = window.__TAURI__.updater;
+  if (!updater) return;
+  let update;
+  try { update = await updater.check(); } catch (_) { return; }
+  if (!update) return;
+
+  const box = $("#update"), text = $("#update-text"), go = $("#update-go"), later = $("#update-later");
+  const label = () => {
+    text.textContent = t("updateAvail", { v: update.version });
+    go.textContent = t("updateInstall");
+    later.textContent = t("updateLater");
+  };
+  label();
+  $("#lang").addEventListener("change", () => { if (!go.disabled) label(); });
+  box.hidden = false;
+  later.onclick = () => (box.hidden = true);
+  go.onclick = async () => {
+    go.disabled = true; later.hidden = true;
+    let total = 0, got = 0;
+    try {
+      await update.downloadAndInstall((ev) => {
+        if (ev.event === "Started") total = ev.data.contentLength || 0;
+        if (ev.event === "Progress") {
+          got += ev.data.chunkLength;
+          text.textContent = t("updateDownloading", { pct: total ? Math.min(100, Math.round((got / total) * 100)) : "…" });
+        }
+      });
+      await window.__TAURI__.process.relaunch();
+    } catch (err) {
+      text.textContent = t("updateFailed", { msg: String(err) });
+      go.disabled = false; later.hidden = false; go.textContent = t("updateInstall");
+    }
+  };
+})();

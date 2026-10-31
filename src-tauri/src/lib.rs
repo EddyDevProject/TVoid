@@ -288,6 +288,8 @@ fn restore(state: tauri::State<State>) -> Result<Vec<ActionResult>, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(State::default())
         .invoke_handler(tauri::generate_handler![
             connect, disconnect, scan, launcher::launcher_status, launcher::launcher_install, launcher::launcher_download, parse_list, plan, apply, recovery_info, restore

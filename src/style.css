@@ -130,3 +130,7 @@ h1 span { background: linear-gradient(120deg, var(--teal), var(--indigo)); -webk
 .plan .pick .meta b { font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plan .group { color: var(--teal); text-transform: uppercase; letter-spacing: .12em; font-size: 11px; padding: 8px 10px 2px; }
 .row .tag.will { display: none; } .row.sel .tag.will { display: inline; }
+
+.update { position: fixed; top: 46px; left: 50%; transform: translateX(-50%); z-index: 45; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 22px; border-radius: 999px; animation: rise .45s cubic-bezier(.2,.8,.2,1) both; }
+.update[hidden] { display: none; }
+.update .btn { padding: 8px 16px; }
