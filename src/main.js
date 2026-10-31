@@ -254,13 +254,19 @@ async function loadLists() {
   return listsCache;
 }
 const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+// whole-word form, so "kara" does not match "karat"
+const words = (x) => " " + String(x || "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).join(" ") + " ";
+const GENERIC = new Set(["generic", "android", "androidtv", "tv", "box", "smarttv", "unknown", "full", "atv"]);
 
 function score(list) {
-  const hay = norm(`${list.tv} ${list.id} ${list.hint}`);
-  const model = norm(st.info.model), device = norm(st.info.device);
+  const hay = words(`${list.tv} ${list.id} ${list.hint}`);
+  const has = (v) => {
+    const w = words(v).trim();
+    return norm(v).length >= 4 && !GENERIC.has(norm(v)) && hay.includes(` ${w} `);
+  };
   let sc = 0;
-  if (model.length >= 4 && hay.includes(model)) sc += 3;
-  if (device.length >= 4 && hay.includes(device)) sc += 2;
+  if (has(st.info.model)) sc += 3;
+  if (has(st.info.device)) sc += 2;
   if (sc && norm(list.brand) === norm(st.info.manufacturer)) sc += 0.5;
   return sc;
 }
