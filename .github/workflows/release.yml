@@ -1,0 +1,99 @@
+name: Release
+
+# Push a tag like v0.1.0 to build installers for macOS, Windows and Linux plus the
+# launcher APK, and attach them to a draft GitHub release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  app:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --target aarch64-apple-darwin
+            rust_targets: aarch64-apple-darwin
+          - os: macos-latest
+            args: --target x86_64-apple-darwin
+            rust_targets: x86_64-apple-darwin
+          - os: ubuntu-22.04
+            args: ""
+            rust_targets: ""
+          - os: windows-latest
+            args: ""
+            rust_targets: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux build dependencies
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "TVoid ${{ github.ref_name }}"
+          releaseBody: "See the assets below. Installers are not code-signed: on macOS right-click → Open, on Windows choose “More info → Run anyway”."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  launcher:
+    # Builds the upstream launcher at the commit pinned in scripts/build-launcher.sh.
+    needs: app
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build launcher APK
+        run: scripts/build-launcher.sh   # uses the runner's preinstalled ANDROID_HOME
+
+      - name: Checksum
+        run: |
+          cp "$HOME/.tvoid/launcher.apk" tvoid-launcher.apk
+          sha256sum tvoid-launcher.apk | tee tvoid-launcher.apk.sha256
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" tvoid-launcher.apk tvoid-launcher.apk.sha256 --clobber
+
+      - name: Keep as workflow artifact (manual runs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher
+          path: |
+            tvoid-launcher.apk
+            tvoid-launcher.apk.sha256

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: JS syntax
+        run: |
+          node --check src/main.js
+          node --check src/i18n.js
+      - name: Every language has every key
+        run: |
+          node -e '
+          const src=require("fs").readFileSync("src/i18n.js","utf8")+";module.exports={I18N};";
+          const m={exports:{}};new Function("module","localStorage",src)(m,{getItem(){return null}});
+          const {I18N}=m.exports, en=Object.keys(I18N.en); let bad=0;
+          for (const l of Object.keys(I18N)) { const miss=en.filter(k=>!(k in I18N[l])); if (miss.length) { console.error(l,"missing",miss); bad=1; } }
+          process.exit(bad)'
