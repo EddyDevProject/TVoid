@@ -290,7 +290,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(State::default())
         .invoke_handler(tauri::generate_handler![
-            connect, disconnect, scan, launcher::launcher_status, launcher::launcher_install, parse_list, plan, apply, recovery_info, restore
+            connect, disconnect, scan, launcher::launcher_status, launcher::launcher_install, launcher::launcher_download, parse_list, plan, apply, recovery_info, restore
         ])
         .run(tauri::generate_context!())
         .expect("errore nell'avvio dell'app");

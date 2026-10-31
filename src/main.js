@@ -154,7 +154,7 @@ $("#review-btn").addEventListener("click", async () => {
     $("#modal-sub").textContent = t("reviewSub", { n: pending.length });
     $("#plan").innerHTML = plan.map((x) =>
       line(x.status === "ok" ? "ok" : x.status === "skip" ? "skip" : "muted", mark[x.status], x.name, x.reason ? t(`r.${x.reason}`) : "")).join("");
-    $("#apk-pick").hidden = true;
+    $("#apk-pick").hidden = true; $("#apk-dl").hidden = true;
     $("#modal-go").disabled = pending.length === 0;
     $("#modal-go").textContent = t("disableN", { n: pending.length });
     $("#modal-go").onclick = doApply;
@@ -167,6 +167,7 @@ new MutationObserver(() => {
   if (!$("#modal").hidden) return;
   $("#modal-go").hidden = false;
   $("#apk-pick").hidden = true;
+  $("#apk-dl").hidden = true;
   $("#list-search").hidden = true;
 }).observe($("#modal"), { attributes: true, attributeFilter: ["hidden"] });
 
@@ -190,7 +191,7 @@ $("#restore-btn").addEventListener("click", async () => {
   $("#modal-title").textContent = t("restoreTitle");
   $("#modal-sub").textContent = t("restoreSub", { n: info.to_enable.length });
   $("#plan").innerHTML = info.to_enable.map((n) => line("ok", "↺", n)).join("");
-  $("#apk-pick").hidden = true;
+  $("#apk-pick").hidden = true; $("#apk-dl").hidden = true;
   $("#modal-go").disabled = false;
   $("#modal-go").textContent = t("restoreAll");
   $("#modal-go").onclick = async () => {
@@ -225,6 +226,16 @@ async function openLauncher() {
   };
   apkBytes = null; renderStatus(null);
   $("#apk-pick").hidden = false;
+  $("#apk-dl").hidden = false;
+  $("#apk-dl").onclick = async () => {
+    const b = $("#apk-dl"); busy(b, true);
+    try {
+      const tag = await invoke("launcher_download");
+      toast(t("downloadedTag", { tag }));
+      openLauncher();
+    } catch (err) { toastErr(err); }
+    finally { busy(b, false); }
+  };
   $("#apk-file").onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     apkBytes = Array.from(new Uint8Array(await f.arrayBuffer()));
@@ -280,7 +291,7 @@ async function openLists() {
   $("#modal-title").textContent = t("listsTitle");
   $("#modal-sub").textContent = t("listsSub");
   $("#modal-go").hidden = true;
-  $("#apk-pick").hidden = true;
+  $("#apk-pick").hidden = true; $("#apk-dl").hidden = true;
   const search = $("#list-search");
   search.hidden = false; search.value = "";
 

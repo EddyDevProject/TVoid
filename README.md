@@ -32,7 +32,12 @@ npx tauri build        # installable bundle
 ```
 
 ## Launcher (optional)
-The launcher is a separate Android app and is not bundled. Build it once with
+The launcher is a separate Android app by the upstream project. In the **Launcher**
+dialog, **Download launcher** fetches the APK from the latest published TVoid release
+and checks it against the SHA-256 published next to it. (The hash comes from the same
+release, so it guards against corruption, not against a compromised release.)
+
+To build it yourself instead:
 
 ```sh
 scripts/build-launcher.sh

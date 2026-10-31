@@ -116,3 +116,66 @@ pub fn launcher_install(state: tauri::State<State>, apk: Option<Vec<u8>>) -> Res
         Ok(log)
     })
 }
+
+const RELEASE_API: &str = "https://api.github.com/repos/EddyDevProject/TVoid/releases/latest";
+const DOWNLOAD_PREFIX: &str = "https://github.com/EddyDevProject/TVoid/releases/download/";
+const MAX_APK_BYTES: u64 = 20 * 1024 * 1024;
+
+fn http_get(url: &str, limit: u64) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+    let resp = ureq::get(url)
+        .set("User-Agent", "tvoid")
+        .timeout(std::time::Duration::from_secs(60))
+        .call()
+        .map_err(|e| format!("e:download_failed:{e}"))?;
+    let mut buf = Vec::new();
+    resp.into_reader()
+        .take(limit + 1)
+        .read_to_end(&mut buf)
+        .map_err(|e| format!("e:download_failed:{e}"))?;
+    if buf.len() as u64 > limit {
+        return Err("e:download_failed:too large".into());
+    }
+    Ok(buf)
+}
+
+/// Download the launcher APK from the latest published TVoid release and check it
+/// against the SHA-256 published next to it. Returns the release tag.
+#[tauri::command(async)]
+pub fn launcher_download() -> Result<String, String> {
+    use sha2::{Digest, Sha256};
+
+    let release: serde_json::Value = serde_json::from_slice(&http_get(RELEASE_API, 1024 * 1024)?)
+        .map_err(|e| format!("e:download_failed:{e}"))?;
+    let tag = release["tag_name"].as_str().unwrap_or("?").to_string();
+
+    let asset_url = |name: &str| -> Result<String, String> {
+        release["assets"]
+            .as_array()
+            .and_then(|a| a.iter().find(|x| x["name"] == name))
+            .and_then(|x| x["browser_download_url"].as_str())
+            .filter(|u| u.starts_with(DOWNLOAD_PREFIX))
+            .map(str::to_string)
+            .ok_or_else(|| "e:no_release_apk".to_string())
+    };
+    let apk_url = asset_url("tvoid-launcher.apk")?;
+    let sum_url = asset_url("tvoid-launcher.apk.sha256")?;
+
+    let apk = http_get(&apk_url, MAX_APK_BYTES)?;
+    let sum_text = String::from_utf8_lossy(&http_get(&sum_url, 4096)?).to_string();
+    let expected = sum_text.split_whitespace().next().unwrap_or("").to_lowercase();
+
+    let actual: String = Sha256::digest(&apk).iter().map(|b| format!("{b:02x}")).collect();
+    if expected.len() != 64 || actual != expected {
+        return Err("e:hash_mismatch".into());
+    }
+    if apk.len() < 1024 || &apk[..2] != b"PK" {
+        return Err("e:not_apk".into());
+    }
+
+    let path = apk_path()?;
+    let tmp = path.with_extension("apk.part");
+    std::fs::write(&tmp, &apk).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
+    Ok(tag)
+}
