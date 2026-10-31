@@ -3,7 +3,10 @@ const $ = (s) => document.querySelector(s);
 
 const SUGGESTED = /(analytics|statistic|telemetry|tracking|crashlytics|bugreport|feedback|adservice|\.ads?(\.|$)|advert|promo|demo|partnercustomization|hotelmode|retail)/i;
 
-const st = { pkgs: [], sel: new Set(), filter: "all", q: "", info: null, connected: false };
+const st = { pkgs: [], sel: new Set(), filter: "all", q: "", info: null, connected: false,
+  index: {},      // package -> { c: lists that disable it, n: most common note }
+  listNotes: {},  // package -> { note, group } from the model lists the user picked
+};
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 function show(view) {
@@ -63,7 +66,7 @@ function renderTv() {
 
 $("#disconnect-btn").addEventListener("click", async () => {
   await invoke("disconnect");
-  st.pkgs = []; st.sel.clear(); st.connected = false;
+  st.pkgs = []; st.sel.clear(); st.listNotes = {}; st.connected = false;
   show("connect");
 });
 
@@ -71,6 +74,9 @@ $("#disconnect-btn").addEventListener("click", async () => {
 async function loadPackages() {
   $("#list").innerHTML = `<div class="loading"><span class="spin"></span>${esc(t("scanning"))}</div>`;
   try {
+    if (!Object.keys(st.index).length) {
+      try { st.index = await (await fetch("packages.json")).json(); } catch (_) { /* notes are optional */ }
+    }
     st.pkgs = await invoke("scan");
     st.pkgs.forEach((p) => (p.suggested = SUGGESTED.test(p.name)));
     render();
@@ -79,10 +85,15 @@ async function loadPackages() {
   }
 }
 
+function noteOf(name) {
+  const l = st.listNotes[name] || {};
+  return l.note || (st.index[name] && st.index[name].n) || l.group || "";
+}
+
 function visible() {
   const q = st.q.toLowerCase();
   return st.pkgs.filter((p) => {
-    if (q && !p.name.toLowerCase().includes(q)) return false;
+    if (q && !p.name.toLowerCase().includes(q) && !noteOf(p.name).toLowerCase().includes(q)) return false;
     if (st.filter === "suggested") return p.suggested && p.enabled;
     if (st.filter === "enabled") return p.enabled;
     if (st.filter === "disabled") return !p.enabled;
@@ -101,7 +112,11 @@ function render() {
   const rows = visible().map((p) => `
     <div class="row ${st.sel.has(p.name) ? "sel" : ""} ${p.enabled ? "" : "off"}" data-n="${esc(p.name)}">
       <span class="check"></span>
-      <span class="name" title="${esc(p.name)}">${esc(p.name)}</span>
+      <span class="namecol">
+        <span class="name" title="${esc(p.name)}">${esc(p.name)}</span>
+        ${noteOf(p.name) ? `<span class="note">${esc(noteOf(p.name))}</span>` : ""}
+      </span>
+      ${st.index[p.name] ? `<span class="tag lists">${esc(t("inLists", { n: st.index[p.name].c }))}</span>` : ""}
       <span class="tag will">${esc(t("willDisable"))}</span>
       ${p.suggested && p.enabled ? `<span class="tag sug">${esc(t("suggested"))}</span>` : ""}
       ${p.system ? `<span class="tag sys">${esc(t("system"))}</span>` : ""}
@@ -322,7 +337,13 @@ async function openLists() {
     if (!row) return;
     const l = lists.find((x) => x.id === row.dataset.id);
     let n = 0;
-    l.packages.forEach((p) => { if (installed.has(p)) { st.sel.add(p); n++; } });
+    l.packages.forEach((p, i) => {
+      if (!installed.has(p)) return;
+      st.sel.add(p); n++;
+      const g = l.g && l.g[i] >= 0 ? l.groups[l.g[i]] : "";
+      const own = (l.notes && l.notes[p]) || "";
+      if (own || g) st.listNotes[p] = { note: own, group: g };
+    });
     $("#modal").hidden = true;
     $("#plan").onclick = null;
     render();
