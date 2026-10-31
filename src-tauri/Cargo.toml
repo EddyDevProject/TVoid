@@ -1,6 +1,6 @@
 [package]
 name = "tvoid"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Declutter Android TV and Google TV over Wi-Fi ADB"
 license = "MIT"
