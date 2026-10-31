@@ -56,12 +56,15 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ad-hoc signature for macOS bundles: without any signature, Apple Silicon reports
+          # downloaded apps as "damaged". Not a notarized signature: still needs right-click → Open.
+          APPLE_SIGNING_IDENTITY: "-"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "TVoid ${{ github.ref_name }}"
-          releaseBody: "See the assets below. Installers are not code-signed: on macOS right-click → Open, on Windows choose “More info → Run anyway”."
+          releaseBody: "Installers are not notarized. macOS: right-click the app → Open. If macOS says the app is damaged, run `xattr -cr /Applications/TVoid.app` once. Windows: More info → Run anyway."
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true

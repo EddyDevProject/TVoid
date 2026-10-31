@@ -22,7 +22,14 @@ client is native, so you don't need `adb` installed.
 Settings → Device Preferences → About → press OK 7 times on **Build** →
 Developer options → turn on **USB debugging** (and network debugging if present).
 
-## Run
+## Install
+Download the installer for your system from [Releases](../../releases).
+The installers are not code-signed by Apple or Microsoft, so the system warns on first launch:
+- **macOS:** right-click the app → Open. If it says the app is "damaged", that is Gatekeeper
+  blocking a download without a signature; run `xattr -cr /Applications/TVoid.app` once.
+- **Windows:** More info → Run anyway.
+
+## Run from source
 Requires Rust and Node.js.
 
 ```sh
