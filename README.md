@@ -10,7 +10,8 @@ client is native, so you don't need `adb` installed.
 ## Features
 - Interface in English (default), Italiano, Español, Français and Deutsch; pick it top right.
 - Connect by IP; the TV asks to authorize the key once.
-- Scan installed packages, search and filter, import a `debloat.txt` list.
+- Scan installed packages, search and filter. Ticking a package means it will be **disabled**; unticked ones are never touched.
+- 360 ready-made debloat lists by TV model (auto-detected from the connected TV), or import your own `debloat.txt`.
 - A review step runs the safety checks before anything is applied:
   protected system packages, last remaining launcher, HDMI input drivers, saved Wi-Fi.
 - Undo record in `~/.tvoid/` written before the first change; one-click restore of

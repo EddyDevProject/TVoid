@@ -102,6 +102,7 @@ function render() {
     <div class="row ${st.sel.has(p.name) ? "sel" : ""} ${p.enabled ? "" : "off"}" data-n="${esc(p.name)}">
       <span class="check"></span>
       <span class="name" title="${esc(p.name)}">${esc(p.name)}</span>
+      <span class="tag will">${esc(t("willDisable"))}</span>
       ${p.suggested && p.enabled ? `<span class="tag sug">${esc(t("suggested"))}</span>` : ""}
       ${p.system ? `<span class="tag sys">${esc(t("system"))}</span>` : ""}
       ${p.enabled ? "" : `<span class="tag dis">${esc(t("disabledTag"))}</span>`}
@@ -162,6 +163,12 @@ $("#review-btn").addEventListener("click", async () => {
   finally { busy(btn, false); updateBar(); }
 });
 $("#modal-cancel").addEventListener("click", () => ($("#modal").hidden = true));
+new MutationObserver(() => {
+  if (!$("#modal").hidden) return;
+  $("#modal-go").hidden = false;
+  $("#apk-pick").hidden = true;
+  $("#list-search").hidden = true;
+}).observe($("#modal"), { attributes: true, attributeFilter: ["hidden"] });
 
 async function doApply() {
   const go = $("#modal-go"); busy(go, true);
@@ -237,3 +244,73 @@ async function openLauncher() {
   $("#modal").hidden = false;
 }
 $("#launcher-btn").addEventListener("click", openLauncher);
+
+// ---- model lists
+let listsCache = null;
+async function loadLists() {
+  if (listsCache) return listsCache;
+  const res = await fetch("lists.json");
+  listsCache = await res.json();
+  return listsCache;
+}
+const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+function score(list) {
+  const hay = norm(`${list.tv} ${list.id} ${list.hint}`);
+  const model = norm(st.info.model), device = norm(st.info.device);
+  let sc = 0;
+  if (model.length >= 4 && hay.includes(model)) sc += 3;
+  if (device.length >= 4 && hay.includes(device)) sc += 2;
+  if (sc && norm(list.brand) === norm(st.info.manufacturer)) sc += 0.5;
+  return sc;
+}
+
+async function openLists() {
+  let lists;
+  try { lists = await loadLists(); } catch (err) { return toast(String(err)); }
+  const installed = new Set(st.pkgs.filter((p) => p.enabled).map((p) => p.name));
+  const scored = lists.map((l) => ({ l, sc: score(l), n: l.packages.filter((p) => installed.has(p)).length }));
+
+  $("#modal-title").textContent = t("listsTitle");
+  $("#modal-sub").textContent = t("listsSub");
+  $("#modal-go").hidden = true;
+  $("#apk-pick").hidden = true;
+  const search = $("#list-search");
+  search.hidden = false; search.value = "";
+
+  const pick = ({ l, n }, best) => `
+    <div class="item pick ${best ? "best" : ""}" data-id="${esc(l.id)}">
+      <span class="meta"><b>${esc(l.tv)}</b><span class="sub2">${esc([l.brand, l.os].filter(Boolean).join(" · "))}</span></span>
+      <span class="sub2">${esc(t("listCount", { n, total: l.packages.length }))}</span>
+    </div>`;
+
+  const draw = () => {
+    const q = norm(search.value);
+    let html = "";
+    if (!q) {
+      const best = scored.filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, 5);
+      if (best.length) html += `<div class="group">${esc(t("detected"))}</div>` + best.map((x) => pick(x, true)).join("");
+      html += `<div class="group">${esc(t("allModels"))}</div>`;
+    }
+    const rows = scored
+      .filter((x) => !q || norm(`${x.l.brand} ${x.l.tv} ${x.l.id}`).includes(q))
+      .sort((a, b) => a.l.tv.localeCompare(b.l.tv));
+    html += rows.map((x) => pick(x, false)).join("") || `<div class="item muted">${esc(t("noMatch"))}</div>`;
+    $("#plan").innerHTML = html;
+  };
+  draw();
+  search.oninput = draw;
+  $("#plan").onclick = (e) => {
+    const row = e.target.closest(".pick");
+    if (!row) return;
+    const l = lists.find((x) => x.id === row.dataset.id);
+    let n = 0;
+    l.packages.forEach((p) => { if (installed.has(p)) { st.sel.add(p); n++; } });
+    $("#modal").hidden = true;
+    $("#plan").onclick = null;
+    render();
+    toast(t("listApplied", { n, tv: l.tv }));
+  };
+  $("#modal").hidden = false;
+}
+$("#lists-btn").addEventListener("click", openLists);

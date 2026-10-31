@@ -59,8 +59,11 @@
         <button data-f="enabled" data-i18n="fEnabled"></button>
         <button data-f="disabled" data-i18n="fDisabled"></button>
       </div>
+      <button class="btn ghost" id="lists-btn" data-i18n="lists"></button>
       <label class="btn ghost file"><span data-i18n="importList"></span><input type="file" id="import" accept=".txt" hidden></label>
     </div>
+
+    <p class="callout" data-i18n="checkHint"></p>
 
     <div class="list glass" id="list"><div class="loading"><span class="spin"></span><span data-i18n="scanning"></span></div></div>
 
@@ -76,6 +79,7 @@
   <div class="sheet glass">
     <h3 id="modal-title"></h3>
     <p class="dim" id="modal-sub"></p>
+    <input id="list-search" class="glass" data-i18n-ph="listsSearch" hidden spellcheck="false">
     <div class="plan" id="plan"></div>
     <input type="file" id="apk-file" accept=".apk" hidden>
     <div class="sheet-actions">

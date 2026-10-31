@@ -27,6 +27,7 @@ fn with_tv<T>(
 struct Probe {
     host: String,
     model: String,
+    device: String,
     manufacturer: String,
     android: String,
     sdk: String,
@@ -126,6 +127,7 @@ fn connect(state: tauri::State<State>, host: String) -> Result<Probe, String> {
     let probe = Probe {
         host: host.clone(),
         model: tv.prop("ro.product.model"),
+        device: tv.prop("ro.product.device"),
         manufacturer: tv.prop("ro.product.manufacturer"),
         android: tv.prop("ro.build.version.release"),
         sdk: tv.prop("ro.build.version.sdk"),
